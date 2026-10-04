@@ -50,20 +50,20 @@ export function MarketsTable({ markets, history, onSelect }: Props) {
                   <span className="market-cell__quote">/{market.quote}</span>
                 </div>
               </td>
-              <td className="right mono">{price(market.reference_price)}</td>
-              <td className="right mono tone-pos">{price(market.best_bid)}</td>
-              <td className="left">
+              <td className="right mono" data-label="Reference">{price(market.reference_price)}</td>
+              <td className="right mono tone-pos" data-label="Best bid">{price(market.best_bid)}</td>
+              <td className="left" data-label="Bid venue">
                 <span className="venue-pill">{market.best_bid_exchange}</span>
               </td>
-              <td className="right mono tone-neg">{price(market.best_ask)}</td>
-              <td className="left">
+              <td className="right mono tone-neg" data-label="Best ask">{price(market.best_ask)}</td>
+              <td className="left" data-label="Ask venue">
                 <span className="venue-pill">{market.best_ask_exchange}</span>
               </td>
-              <td className="right mono muted">{market.venues}</td>
-              <td className={`right mono strong tone-${tone(market.max_net_spread_pct)}`}>
+              <td className="right mono muted" data-label="Venues">{market.venues}</td>
+              <td className={`right mono strong tone-${tone(market.max_net_spread_pct)}`} data-label="Best net edge">
                 {pct(market.max_net_spread_pct, 3)}
               </td>
-              <td className="right">
+              <td className="right" data-label="Trend">
                 <Sparkline
                   values={history[market.base] ?? []}
                   zeroLine

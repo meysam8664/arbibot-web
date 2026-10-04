@@ -1,47 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type {
-  EdgeHistoryPoint,
-  HistoryPoint,
-  MarketUpdate,
-  RuntimeConfig,
-  RuntimeConfigPatch,
-} from './types'
-
-const JSON_HEADERS = { 'Content-Type': 'application/json' }
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init)
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(`${response.status} ${response.statusText}: ${detail.slice(0, 200)}`)
-  }
-  return (await response.json()) as T
-}
-
-export const api = {
-  snapshot: () => request<MarketUpdate>('/api/snapshot'),
-  config: () => request<RuntimeConfig>('/api/config'),
-  patchConfig: (patch: RuntimeConfigPatch) =>
-    request<RuntimeConfig>('/api/config', { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(patch) }),
-  refresh: () => request<MarketUpdate>('/api/refresh', { method: 'POST' }),
-  history: (symbol: string) => request<{ symbol: string; points: HistoryPoint[] }>(`/api/history/${symbol}`),
-  edgeHistory: (edgeId: string) =>
-    request<{ edge_id: string; points: EdgeHistoryPoint[] }>(
-      `/api/edge-history?edge_id=${encodeURIComponent(edgeId)}`,
-    ),
-}
+import * as client from './data/client'
+import { getSettings } from './data/settings'
+import type { MarketUpdate } from './types'
 
 export type StreamState = 'connecting' | 'streaming' | 'polling'
 
-const POLL_FALLBACK_MS = 4000
+const BACKEND_POLL_FALLBACK_MS = 4000
 
 /**
- * Subscribes to the engine's WebSocket snapshot stream.
+ * Keeps a fresh engine snapshot in React state.
  *
- * Falls back to REST polling if the socket cannot be established or keeps
- * dropping, so the dashboard stays live behind restrictive proxies.
+ * - Backend deployment: WebSocket push (`/ws`) with automatic REST polling if
+ *   the socket cannot be established.
+ * - Standalone (static host / phone): the in-browser engine is driven on an
+ *   interval, so no server is required at all.
  */
-export function useMarketStream() {
+export function useMarketStream(pollIntervalSec?: number) {
   const [snapshot, setSnapshot] = useState<MarketUpdate | null>(null)
   const [state, setState] = useState<StreamState>('connecting')
   const [error, setError] = useState<string | null>(null)
@@ -59,63 +33,79 @@ export function useMarketStream() {
     let socket: WebSocket | null = null
     let pollTimer: number | undefined
     let retryTimer: number | undefined
+    let cancelled = false
     let failures = 0
+
+    const settings = getSettings()
+    const standalone = client.isStandalone()
+    const intervalMs = Math.max(1000, (pollIntervalSec ?? settings.pollInterval) * 1000)
+
+    const tick = async () => {
+      try {
+        applySnapshot(await client.fetchSnapshot())
+        setError(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+      }
+    }
 
     const stopPolling = () => {
       if (pollTimer !== undefined) window.clearInterval(pollTimer)
       pollTimer = undefined
     }
 
-    const startPolling = () => {
+    const startPolling = (interval = BACKEND_POLL_FALLBACK_MS) => {
       if (pollTimer !== undefined) return
       setState('polling')
-      const tick = async () => {
-        try {
-          applySnapshot(await api.snapshot())
-          setError(null)
-        } catch (err) {
-          setError(err instanceof Error ? err.message : String(err))
-        }
-      }
       void tick()
-      pollTimer = window.setInterval(tick, POLL_FALLBACK_MS)
+      pollTimer = window.setInterval(tick, interval)
     }
 
-    const connect = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-      const url = `${protocol}://${window.location.host}/ws`
-      try {
-        socket = new WebSocket(url)
-      } catch {
-        startPolling()
-        return
-      }
-
-      socket.onopen = () => {
-        failures = 0
-        setError(null)
-        stopPolling()
-        setState('streaming')
-      }
-      socket.onmessage = (event) => {
+    if (standalone) {
+      // No server: run the scan loop locally.
+      setState('polling')
+      void tick()
+      pollTimer = window.setInterval(tick, intervalMs)
+    } else {
+      const connect = () => {
+        if (cancelled) return
+        const base = (getSettings().backendUrl ?? '').replace(/\/$/, '')
+        const url = base
+          ? `${base.replace(/^http/, 'ws')}/ws`
+          : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
         try {
-          const payload = JSON.parse(event.data) as MarketUpdate | { type: 'pong' }
-          if (payload.type === 'snapshot') applySnapshot(payload)
+          socket = new WebSocket(url)
         } catch {
-          /* ignore malformed frames */
+          startPolling()
+          return
+        }
+        socket.onopen = () => {
+          failures = 0
+          setError(null)
+          stopPolling()
+          setState('streaming')
+        }
+        socket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data as string) as MarketUpdate | { type: 'pong' }
+            if (payload.type === 'snapshot') applySnapshot(payload as MarketUpdate)
+          } catch {
+            /* ignore malformed frames */
+          }
+        }
+        socket.onerror = () => setError('websocket error')
+        socket.onclose = () => {
+          if (socket?.readyState === WebSocket.CLOSED) socket = null
+          failures += 1
+          if (failures >= 2) startPolling()
+          retryTimer = window.setTimeout(connect, Math.min(15000, 1000 * failures))
         }
       }
-      socket.onerror = () => setError('websocket error')
-      socket.onclose = () => {
-        if (socket?.readyState === WebSocket.CLOSED) socket = null
-        failures += 1
-        if (failures >= 2) startPolling()
-        retryTimer = window.setTimeout(connect, Math.min(15000, 1000 * failures))
-      }
+      connect()
     }
 
-    connect()
     return () => {
+      cancelled = true
       stopPolling()
       if (retryTimer !== undefined) window.clearTimeout(retryTimer)
       const active = socket
@@ -125,7 +115,16 @@ export function useMarketStream() {
         active.close()
       }
     }
-  }, [applySnapshot])
+  }, [applySnapshot, pollIntervalSec])
 
   return { snapshot, state, error, paused, setPaused }
+}
+
+export const api = {
+  config: client.fetchConfig,
+  patchConfig: client.patchConfig,
+  refresh: client.refresh,
+  edgeHistory: (edgeId: string) => client.fetchEdgeHistory(edgeId).then((points) => ({ points })),
+  history: (symbol: string) =>
+    client.fetchHistory(symbol).then((points) => ({ symbol: symbol.toUpperCase(), points })),
 }

@@ -2,7 +2,7 @@
 PY ?= .venv/bin/python
 VENV ?= .venv
 
-.PHONY: help setup setup-backend setup-frontend dev backend frontend test lint build clean
+.PHONY: help setup setup-backend setup-frontend dev backend frontend test test-frontend test-all lint build icons serve-standalone clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -33,8 +33,21 @@ frontend: ## Run the Vite dev server on :5173
 test: ## Run the backend test suite
 	cd backend && ../$(PY) -m pytest
 
+test-frontend: ## Run the browser-engine test suite (vitest)
+	cd frontend && npm test
+
+test-all: test test-frontend ## Run every test suite
+
 build: ## Build the dashboard (served by the API at /)
 	cd frontend && npm run build
+
+serve-standalone: ## Build + serve the dashboard alone on :8090 (open it on your phone)
+	cd frontend && npm run build
+	@echo "Dashboard on http://<this-host>:8090 — open it on your phone (no backend needed)"
+	cd frontend/dist && $(abspath $(PY)) -m http.server 8090 --bind 0.0.0.0
+
+icons: ## Regenerate the PWA icons (needs Pillow: pip install pillow)
+	$(PY) frontend/scripts/generate_icons.py
 
 lint: ## Type-check the dashboard and byte-compile the backend
 	cd frontend && npm run typecheck

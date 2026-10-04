@@ -41,10 +41,10 @@ export function TrianglesTable({ triangles }: Props) {
         <tbody>
           {triangles.map((cycle) => (
             <tr key={cycle.id} className="row">
-              <td className="left">
+              <td className="left" data-label="Venue">
                 <span className="venue-pill">{cycle.exchange_name || cycle.exchange}</span>
               </td>
-              <td className="left">
+              <td className="left" data-label="Cycle">
                 <div className="path">
                   {cycle.path.map((asset, index) => (
                     <span key={`${asset}-${index}`} className="path__item">
@@ -54,7 +54,7 @@ export function TrianglesTable({ triangles }: Props) {
                   ))}
                 </div>
               </td>
-              <td className="left">
+              <td className="left" data-label="Legs">
                 <div className="legs">
                   {cycle.legs.map((leg, index) => (
                     <span key={`${leg.symbol}-${index}`} className={`leg leg--${leg.side}`}>
@@ -65,12 +65,12 @@ export function TrianglesTable({ triangles }: Props) {
                   ))}
                 </div>
               </td>
-              <td className="right mono">{pct(cycle.gross_spread_pct, 3)}</td>
-              <td className="right mono muted">−{cycle.total_fees_pct.toFixed(3)}%</td>
-              <td className={`right mono strong tone-${tone(cycle.net_spread_pct)}`}>
+              <td className="right mono" data-label="Gross">{pct(cycle.gross_spread_pct, 3)}</td>
+              <td className="right mono muted" data-label="Fees">−{cycle.total_fees_pct.toFixed(3)}%</td>
+              <td className={`right mono strong tone-${tone(cycle.net_spread_pct)}`} data-label="Net edge">
                 {pct(cycle.net_spread_pct, 3)}
               </td>
-              <td className={`right mono tone-${tone(cycle.est_profit_usd)}`}>
+              <td className={`right mono tone-${tone(cycle.est_profit_usd)}`} data-label="Profit">
                 {usd(cycle.est_profit_usd)}
               </td>
             </tr>

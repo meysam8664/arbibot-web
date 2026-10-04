@@ -6,7 +6,11 @@ import react from '@vitejs/plugin-react'
 // request to the API uses a relative path and is proxied to the backend here.
 const API_TARGET = process.env.ARBIBOT_API ?? 'http://127.0.0.1:8000'
 
+// GitHub Pages and other sub-path hosts set ARBIBOT_BASE=/<repo>/ at build time.
+const BASE = process.env.ARBIBOT_BASE ?? '/'
+
 export default defineConfig({
+  base: BASE,
   plugins: [react()],
   server: {
     host: '0.0.0.0',

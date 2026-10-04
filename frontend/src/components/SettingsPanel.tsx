@@ -5,6 +5,8 @@ interface Props {
   config: RuntimeConfig
   onPatch: (patch: RuntimeConfigPatch) => Promise<void>
   busy: boolean
+  /** True when the scanner runs in this browser (no backend). */
+  standalone?: boolean
 }
 
 const WATCHLIST = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'LINK', 'TON', 'DOT', 'LTC']
@@ -13,7 +15,7 @@ const WATCHLIST = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'LI
  * Runtime controls.  Edits are staged locally and sent as one PATCH, so the
  * engine re-scans exactly once per change instead of on every keystroke.
  */
-export function SettingsPanel({ config, onPatch, busy }: Props) {
+export function SettingsPanel({ config, onPatch, busy, standalone = false }: Props) {
   const [mode, setMode] = useState(config.data_mode)
   const [notional, setNotional] = useState(config.notional_usd)
   const [minEdge, setMinEdge] = useState(config.min_net_spread_pct)
@@ -126,8 +128,8 @@ export function SettingsPanel({ config, onPatch, busy }: Props) {
           <input
             id="interval"
             type="range"
-            min={1}
-            max={15}
+            min={2}
+            max={30}
             step={1}
             value={interval}
             onChange={(event) => setIntervalSeconds(Number(event.target.value))}
@@ -135,6 +137,7 @@ export function SettingsPanel({ config, onPatch, busy }: Props) {
           />
           <span className="value mono">{interval.toFixed(0)}s</span>
         </div>
+        {standalone ? <p className="hint">How often this device re-queries the exchanges directly.</p> : null}
       </div>
 
       <div className="field">
@@ -172,6 +175,13 @@ export function SettingsPanel({ config, onPatch, busy }: Props) {
           ))}
         </div>
       </div>
+
+      {standalone ? (
+        <p className="hint">
+          Settings are stored on this device. Some venues (Binance in particular) do not allow direct browser calls —
+          they show as <em>offline</em> unless you deploy with a CORS proxy in <code>config.js</code>.
+        </p>
+      ) : null}
     </div>
   )
 }

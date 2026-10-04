@@ -9,7 +9,8 @@ where the same asset is quoted differently across venues.
 
 ```
 backend/    FastAPI engine, exchange adapters, arbitrage maths, tests
-frontend/   React + TypeScript + Vite dashboard (dark trading-desk UI)
+frontend/   React + TypeScript + Vite dashboard (dark trading-desk UI, installable PWA)
+docs/       Deployment guide (phone access, static hosting, containers)
 ```
 
 ## What it does
@@ -61,6 +62,40 @@ make backend    # API on :8000 (serves the built dashboard)
 make frontend   # Vite dev server on :5173 with /api and /ws proxied to :8000
 make test       # backend test suite
 ```
+
+## Use it on your phone
+
+The dashboard is an installable PWA and ships **two interchangeable engines**:
+
+* **Backend engine** (Python/FastAPI) — one host polls the exchanges and streams every client.
+* **On-device engine** (TypeScript port, `frontend/src/engine/`) — the browser polls the ten
+  public exchange APIs itself and runs the identical fee/slippage maths. This is what makes a
+  serverless, phone-only deployment possible.
+
+The same build picks the right one automatically: if `/api/health` answers like an ArbiBot API it
+uses the backend and its WebSocket stream, otherwise it runs the scanner in the browser. Override
+it with `backendUrl` in [`frontend/public/config.js`](frontend/public/config.js)
+(`''` = auto-detect, `null` = always local, or an absolute API URL).
+
+**Fastest route to a phone-ready URL** — host the dashboard statically, no server:
+
+```bash
+cd frontend && npm run build      # then publish dist/ to Pages, Netlify, Vercel…
+```
+
+Or run everything in one container:
+
+```bash
+docker compose up --build         # http://localhost:8000 (also reachable from your LAN)
+```
+
+Header button **▣ phone** shows a QR code of the current URL (rendered client-side, so it works
+on locked-down networks) plus an *Install app* button. On iOS use Share → *Add to Home Screen*;
+on Android use the ⋮ menu → *Install app*. Installing needs HTTPS — every option above provides
+it, and a plain LAN IP still works as a normal web page.
+
+Full walkthrough (static hosting, single container, split deployment, CORS notes, env reference):
+**[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ### Development with hot reload
 
@@ -146,14 +181,19 @@ withdrawal limits. Nothing in this project is trading advice.
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest    # 49 tests
+cd backend && ../.venv/bin/python -m pytest    # 49 backend tests
+cd frontend && npm test                        # 23 browser-engine tests (vitest)
 ```
 
-Coverage includes: symbol normalisation across every venue spelling, arbitrage maths
+Backend coverage: symbol normalisation across every venue spelling, arbitrage maths
 (fees, slippage, depth caps, staleness, quote-currency filtering), triangular cycle
 detection and rejection, adapter parsing against recorded payload shapes with
 `httpx.MockTransport`, hub behaviour (live collection, auto-fallback, runtime
 reconfiguration) and the full REST/WebSocket API contract.
+
+Frontend coverage: the browser engine's arbitrage maths and triangular scans, seeded
+simulator determinism and realism, symbol parsing, and the backend-vs-on-device
+data-source detection (including the static-host and offline cases).
 
 ## Project layout
 
@@ -169,9 +209,12 @@ backend/app/
     simulator.py       seeded offline feed
 backend/tests/         pytest suite
 frontend/src/
-  App.tsx              dashboard shell, filters, tabs
-  components/          tables, venue panel, settings, detail drawer, sparkline
-  api.ts               REST helpers + WebSocket stream hook with polling fallback
+  App.tsx              dashboard shell, filters, tabs, phone panel
+  components/          tables, venue panel, settings, detail drawer, sparkline, QR panel
+  engine/              browser engine: adapters, arbitrage maths, seeded simulator
+  data/                settings + client (backend | on-device) and the local engine
+  api.ts               stream hook: WebSocket when a backend exists, on-device otherwise
+frontend/public/       config.js, manifest, service worker, icons, offline page
 ```
 
 ## License

@@ -3,29 +3,53 @@ import { api, useMarketStream } from './api'
 import { DetailDrawer, type Selection } from './components/DetailDrawer'
 import { MarketsTable } from './components/MarketsTable'
 import { OpportunitiesTable } from './components/OpportunitiesTable'
+import { PhonePanel } from './components/PhonePanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { TrianglesTable } from './components/TrianglesTable'
 import { VenuesPanel } from './components/VenuesPanel'
+import * as client from './data/client'
+import { getSettings } from './data/settings'
 import { compactUsd, pct, tone, usd } from './format'
 import type { RuntimeConfig, RuntimeConfigPatch, SymbolSnapshot } from './types'
 
 type Tab = 'cross' | 'triangles' | 'markets'
 const HISTORY_LENGTH = 60
 
-export default function App() {
-  const { snapshot, state, error, paused, setPaused } = useMarketStream()
+interface AppProps {
+  initialTab?: Tab
+}
+
+export default function App({ initialTab = 'cross' }: AppProps) {
   const [config, setConfig] = useState<RuntimeConfig | null>(null)
+  const { snapshot, state, error, paused, setPaused } = useMarketStream(config?.poll_interval)
   const [configError, setConfigError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<Tab>('cross')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [query, setQuery] = useState('')
   const [showNearMisses, setShowNearMisses] = useState(false)
   const [selection, setSelection] = useState<Selection>(null)
+  const [showPhone, setShowPhone] = useState(false)
+  const [standalone, setStandalone] = useState(() => client.currentDataSource() === 'local')
+  const [detecting, setDetecting] = useState(() => client.currentDataSource() === 'unknown')
 
   const edgeSeries = useRef<Record<string, number[]>>({})
   const priceSeries = useRef<Record<string, number[]>>({})
 
-  // Seed the runtime config (and the watch-list metadata) once on load.
+  const settings = getSettings()
+  const title = settings.title
+
+  useEffect(() => {
+    let cancelled = false
+    client.resolveDataSource().then((source) => {
+      if (cancelled) return
+      setStandalone(source === 'local')
+      setDetecting(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useEffect(() => {
     api
       .config()
@@ -49,8 +73,7 @@ export default function App() {
   const patchConfig = useCallback(async (patch: RuntimeConfigPatch) => {
     setBusy(true)
     try {
-      const updated = await api.patchConfig(patch)
-      setConfig(updated)
+      setConfig(await api.patchConfig(patch))
       setConfigError(null)
     } catch (err) {
       setConfigError(err instanceof Error ? err.message : String(err))
@@ -121,8 +144,14 @@ export default function App() {
             ⬡
           </span>
           <div>
-            <h1>ArbiBot Web</h1>
-            <p>Cross-exchange arbitrage scanner</p>
+            <h1>{title}</h1>
+            <p>
+              {detecting
+                ? 'Detecting data source…'
+                : standalone
+                  ? 'Runs in your browser · no server needed'
+                  : 'Cross-exchange arbitrage scanner'}
+            </p>
           </div>
         </div>
 
@@ -131,11 +160,19 @@ export default function App() {
             {mode === 'live' ? 'LIVE DATA' : mode === 'sim' ? 'SIMULATED FEED' : 'PROBING'}
           </span>
           <span className={`pill pill--stream pill--${state}`}>
-            {state === 'streaming' ? 'streaming' : state === 'polling' ? 'polling' : 'connecting'}
+            {standalone ? 'on-device' : state === 'streaming' ? 'streaming' : state === 'polling' ? 'polling' : 'connecting'}
           </span>
           <span className="pill pill--muted" title={snapshot?.data_mode_reason}>
             {stats ? `cycle #${stats.cycle} · ${stats.cycle_ms.toFixed(0)} ms` : 'waiting for data'}
           </span>
+          <button
+            type="button"
+            className={`ghost-button ${showPhone ? 'ghost-button--active' : ''}`}
+            onClick={() => setShowPhone((value) => !value)}
+            title="Open this dashboard on your phone"
+          >
+            ▣ phone
+          </button>
           <button
             type="button"
             className={`ghost-button ${paused ? 'ghost-button--active' : ''}`}
@@ -150,15 +187,23 @@ export default function App() {
         </div>
       </header>
 
+      {showPhone && <PhonePanel standalone={standalone} />}
+
       {simulated && (
         <div className="banner banner--sim">
           <strong>Simulated market feed.</strong> {snapshot?.data_mode_reason} Prices are generated locally by a seeded
-          model, so the dashboard stays usable — switch <em>Data source</em> to <strong>Live APIs</strong> in Settings once
-          the host can reach the exchanges.
+          model, so the dashboard stays usable — switch <em>Data source</em> to <strong>Live APIs</strong> in Settings
+          once the exchanges answer from this device.
         </div>
       )}
-      {error && <div className="banner banner--warn">Transport issue: {error} — falling back to polling if needed.</div>}
-      {configError && <div className="banner banner--warn">API error: {configError}</div>}
+      {standalone && !simulated && (
+        <div className="banner banner--info">
+          <strong>On-device engine.</strong> The scan runs entirely in this browser — no API keys, no backend. Ten public
+          exchange APIs are polled directly from your phone or laptop.
+        </div>
+      )}
+      {error && <div className="banner banner--warn">Transport issue: {error} — retrying automatically.</div>}
+      {configError && <div className="banner banner--warn">Configuration error: {configError}</div>}
 
       <section className="stats">
         <Stat label="Priced edges" value={stats ? String(stats.opportunities) : '—'} hint="cross-venue routes clearing costs" />
@@ -187,11 +232,7 @@ export default function App() {
         <div className="content">
           <div className="toolbar">
             <nav className="tabs">
-              <button
-                type="button"
-                className={tab === 'cross' ? 'tab tab--active' : 'tab'}
-                onClick={() => setTab('cross')}
-              >
+              <button type="button" className={tab === 'cross' ? 'tab tab--active' : 'tab'} onClick={() => setTab('cross')}>
                 Cross-venue <span className="tab__count">{snapshot?.opportunities.length ?? 0}</span>
               </button>
               <button
@@ -201,11 +242,7 @@ export default function App() {
               >
                 Triangular <span className="tab__count">{snapshot?.triangles.length ?? 0}</span>
               </button>
-              <button
-                type="button"
-                className={tab === 'markets' ? 'tab tab--active' : 'tab'}
-                onClick={() => setTab('markets')}
-              >
+              <button type="button" className={tab === 'markets' ? 'tab tab--active' : 'tab'} onClick={() => setTab('markets')}>
                 Markets <span className="tab__count">{snapshot?.markets.length ?? 0}</span>
               </button>
             </nav>
@@ -256,8 +293,17 @@ export default function App() {
         </div>
 
         <aside className="sidebar">
-          {config ? (
-            <SettingsPanel config={config} onPatch={patchConfig} busy={busy} />
+          {settings.lockSettings ? (
+            <div className="panel">
+              <div className="panel__head">
+                <h2>Settings</h2>
+              </div>
+              <p className="hint">
+                This deployment has a fixed configuration (watch-list, fees and thresholds are preset by the operator).
+              </p>
+            </div>
+          ) : config ? (
+            <SettingsPanel config={config} onPatch={patchConfig} busy={busy} standalone={standalone} />
           ) : (
             <div className="panel">
               <div className="panel__head">
@@ -266,7 +312,7 @@ export default function App() {
               <p className="hint">Loading runtime configuration…</p>
             </div>
           )}
-          <VenuesPanel exchanges={snapshot?.exchanges ?? []} onToggle={toggleVenue} />
+          <VenuesPanel exchanges={snapshot?.exchanges ?? []} onToggle={settings.lockSettings ? undefined : toggleVenue} />
         </aside>
       </main>
 
@@ -294,4 +340,3 @@ function Stat({
     </div>
   )
 }
-

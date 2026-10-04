@@ -111,7 +111,7 @@ export function OpportunitiesTable({ opportunities, edges, onSelect, selectedId,
                   {row.depth_limited && <span className="chip chip--warn" title="Book depth caps the size">depth capped</span>}
                   {!row.profitable && <span className="chip chip--muted" title="Does not clear costs yet">near miss</span>}
                 </td>
-                <td className="left">
+                <td className="left" data-label="Route">
                   <div className="route">
                     <span className="route__venue buy" title={`Buy at ${price(row.buy_ask)}`}>
                       {row.buy_exchange_name || row.buy_exchange}
@@ -125,17 +125,17 @@ export function OpportunitiesTable({ opportunities, edges, onSelect, selectedId,
                     {price(row.buy_ask)} <span className="muted">/</span> {price(row.sell_bid)}
                   </div>
                 </td>
-                <td className="right mono">{pct(row.gross_spread_pct, 3)}</td>
-                <td className="right mono muted">−{row.total_fees_pct.toFixed(3)}%</td>
-                <td className={`right mono strong tone-${tone(row.net_spread_pct)}`}>
+                <td className="right mono" data-label="Gross">{pct(row.gross_spread_pct, 3)}</td>
+                <td className="right mono muted" data-label="Fees">−{row.total_fees_pct.toFixed(3)}%</td>
+                <td className={`right mono strong tone-${tone(row.net_spread_pct)}`} data-label="Net edge">
                   {pct(row.net_spread_pct, 3)}
                 </td>
-                <td className={`right mono tone-${tone(row.est_profit_usd)}`}>
+                <td className={`right mono tone-${tone(row.est_profit_usd)}`} data-label="Profit">
                   {usd(row.est_profit_usd)}
                   <span className="muted small"> / {qty(row.qty)} {row.base}</span>
                 </td>
-                <td className="right mono muted">{usd(row.executable_notional_usd, 0)}</td>
-                <td className="right">
+                <td className="right mono muted" data-label="Size">{usd(row.executable_notional_usd, 0)}</td>
+                <td className="right" data-label="Trend">
                   <Sparkline values={series} zeroLine color={row.profitable ? 'var(--pos)' : 'var(--muted)'} />
                 </td>
               </tr>

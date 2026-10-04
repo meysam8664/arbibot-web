@@ -1,0 +1,23 @@
+# Example: deploy the ArbiBot Web API (backend + served dashboard) on Render.
+#
+#  1. Push this repository to GitHub.
+#  2. Render → New → Blueprint → pick the repository (this file is detected).
+#  3. Open https://<service>.onrender.com on your phone.
+#
+# The free plan spins down after inactivity, so the first request after a pause
+# takes a few seconds to wake up.
+services:
+  - type: web
+    name: arbibot-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ARBIBOT_DATA_MODE
+        value: auto
+      - key: ARBIBOT_POLL_INTERVAL
+        value: '4'
+      - key: ARBIBOT_SYMBOLS
+        value: BTC,ETH,SOL,XRP,BNB,DOGE,ADA,AVAX,LINK,TON,DOT,LTC
