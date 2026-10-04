@@ -266,6 +266,17 @@ export default function App({ initialTab = 'cross' }: AppProps) {
           </div>
 
           <div className="card">
+            {!snapshot ? (
+              <LoadingState
+                label={detecting ? 'Detecting data source…' : standalone ? 'Scanning exchanges from this device…' : 'Connecting to the engine…'}
+                detail={
+                  standalone
+                    ? 'The browser engine is querying ten public exchange APIs. Venues that refuse browser requests will be reported as offline.'
+                    : 'Fetching the first snapshot from the API.'
+                }
+              />
+            ) : (
+              <>
             {tab === 'cross' && (
               <OpportunitiesTable
                 opportunities={opportunities}
@@ -282,6 +293,8 @@ export default function App({ initialTab = 'cross' }: AppProps) {
                 history={priceSeries.current}
                 onSelect={(market: SymbolSnapshot) => setSelection({ kind: 'market', market })}
               />
+            )}
+              </>
             )}
           </div>
 
@@ -317,6 +330,31 @@ export default function App({ initialTab = 'cross' }: AppProps) {
       </main>
 
       <DetailDrawer selection={selection} onClose={() => setSelection(null)} />
+    </div>
+  )
+}
+
+/** Skeleton shown until the first snapshot arrives. */
+function LoadingState({ label, detail }: { label: string; detail: string }) {
+  return (
+    <div className="loading">
+      <div className="loading__head">
+        <span className="loading__spinner" aria-hidden />
+        <div>
+          <strong>{label}</strong>
+          <p className="hint">{detail}</p>
+        </div>
+      </div>
+      <div className="loading__rows" aria-hidden>
+        {[0, 1, 2, 3, 4].map((index) => (
+          <div key={index} className="loading__row" style={{ animationDelay: `${index * 90}ms` }}>
+            <span className="loading__cell loading__cell--wide" />
+            <span className="loading__cell" />
+            <span className="loading__cell" />
+            <span className="loading__cell loading__cell--narrow" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
