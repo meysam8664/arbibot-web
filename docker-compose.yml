@@ -1,0 +1,19 @@
+services:
+  arbibot-web:
+    build: .
+    image: arbibot-web:latest
+    ports:
+      - '8000:8000'
+    environment:
+      # `auto` uses the live exchange APIs and falls back to the simulator when
+      # the container cannot reach them.
+      ARBIBOT_DATA_MODE: auto
+      ARBIBOT_SYMBOLS: BTC,ETH,SOL,XRP,BNB,DOGE,ADA,AVAX,LINK,TON,DOT,LTC
+      ARBIBOT_POLL_INTERVAL: '4'
+      ARBIBOT_NOTIONAL_USD: '10000'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
