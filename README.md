@@ -77,10 +77,18 @@ uses the backend and its WebSocket stream, otherwise it runs the scanner in the 
 it with `backendUrl` in [`frontend/public/config.js`](frontend/public/config.js)
 (`''` = auto-detect, `null` = always local, or an absolute API URL).
 
-**Fastest route to a phone-ready URL** — host the dashboard statically, no server:
+**Fastest route to a phone-ready URL** — the built dashboard is committed in
+[`docs/`](docs), so a static host needs no build step:
+
+* **GitHub Pages:** Settings → Pages → Source: *Deploy from a branch* → `main` /
+  `/docs` → live at `https://<user>.github.io/<repo>/`.
+* **Netlify / Vercel / Cloudflare Pages:** publish `docs/` (or build
+  `frontend/` yourself with `npm run build`). `vercel.json` is included.
+* The page detects a static host (no same-origin `/api`) and runs the scanner in
+  the browser, so it works with no backend at all.
 
 ```bash
-cd frontend && npm run build      # then publish dist/ to Pages, Netlify, Vercel…
+make site     # rebuild docs/ after changing frontend/
 ```
 
 Or run everything in one container:
