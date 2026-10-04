@@ -40,7 +40,7 @@ concurrently.
 
 ## Quick start
 
-Requires Python 3.10+ and Node 18+.
+Requires Python 3.10+ and Node 22+ (the dashboard tooling targets Node 22 LTS).
 
 ```bash
 # 1. Backend
