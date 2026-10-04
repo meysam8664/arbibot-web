@@ -41,6 +41,13 @@ test-all: test test-frontend ## Run every test suite
 build: ## Build the dashboard (served by the API at /)
 	cd frontend && npm run build
 
+site: ## Rebuild the committed static site/ folder (relative paths, any host)
+	cd frontend && ARBIBOT_BASE=./ npm run build
+	cp site/README.md /tmp/arbibot-site-readme.md
+	rm -rf site && mkdir -p site && cp -r frontend/dist/* site/
+	cp /tmp/arbibot-site-readme.md site/README.md
+	@echo "site/ rebuilt — commit it to publish on Pages/any static host"
+
 serve-standalone: ## Build + serve the dashboard alone on :8090 (open it on your phone)
 	cd frontend && npm run build
 	@echo "Dashboard on http://<this-host>:8090 — open it on your phone (no backend needed)"
