@@ -182,7 +182,7 @@ withdrawal limits. Nothing in this project is trading advice.
 
 ```bash
 cd backend && ../.venv/bin/python -m pytest    # 49 backend tests
-cd frontend && npm test                        # 23 browser-engine tests (vitest)
+cd frontend && npm test                        # 25 frontend tests (vitest)
 ```
 
 Backend coverage: symbol normalisation across every venue spelling, arbitrage maths
@@ -192,8 +192,10 @@ detection and rejection, adapter parsing against recorded payload shapes with
 reconfiguration) and the full REST/WebSocket API contract.
 
 Frontend coverage: the browser engine's arbitrage maths and triangular scans, seeded
-simulator determinism and realism, symbol parsing, and the backend-vs-on-device
-data-source detection (including the static-host and offline cases).
+simulator determinism and realism, symbol parsing, the backend-vs-on-device data-source
+detection (static host and offline cases), plus two jsdom end-to-end tests that mount the
+whole dashboard against a static host and assert it scans on-device and renders the QR
+phone panel.
 
 ## Project layout
 
