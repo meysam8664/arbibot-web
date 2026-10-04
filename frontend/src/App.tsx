@@ -7,7 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { TrianglesTable } from './components/TrianglesTable'
 import { VenuesPanel } from './components/VenuesPanel'
 import { compactUsd, pct, tone, usd } from './format'
-import type { MarketUpdate, RuntimeConfig, RuntimeConfigPatch, SymbolSnapshot } from './types'
+import type { RuntimeConfig, RuntimeConfigPatch, SymbolSnapshot } from './types'
 
 type Tab = 'cross' | 'triangles' | 'markets'
 const HISTORY_LENGTH = 60
@@ -295,4 +295,3 @@ function Stat({
   )
 }
 
-export type { MarketUpdate }
